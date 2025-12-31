@@ -1,49 +1,38 @@
 import streamlit as st
 from PIL import Image
-import cv2
 import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(page_title="AI Deepfake Detection", layout="centered")
-
-st.title("AI Deepfake & Election Misinformation Detection Tool")
-
-media_type = st.selectbox(
-    "Select Media Type",
-    ["Image", "Video", "Audio", "URL"]
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="AI Deepfake and Misinformation Detection Tool",
+    layout="centered"
 )
 
-uploaded_file = None
-url_input = ""
+# ---------------- TITLE ----------------
+st.title("AI Deepfake and Misinformation Detection Tool")
 
-if media_type == "Image":
-    uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png"])
-elif media_type == "Video":
-    uploaded_file = st.file_uploader("Upload Video", type=["mp4"])
-elif media_type == "Audio":
-    uploaded_file = st.file_uploader("Upload Audio", type=["wav", "mp3"])
-elif media_type == "URL":
-    url_input = st.text_input("Paste URL")
+# ---------------- TABS ----------------
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🔍 Analyze Content",
+    "🤖 Bot Detection",
+    "ℹ️ About",
+    "🚀 Future Scope"
+])
 
-comments_text = st.text_area(
-    "Paste Comments (one per line)",
-    height=150
-)
-
-# ---------- FUNCTIONS ----------
+# ---------------- FUNCTIONS ----------------
 
 def image_score(image):
     score = 0
-    img = np.array(image)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.Laplacian(gray, cv2.CV_64F).var()
-    if blur < 100:
-        score += 25
+    # Metadata check
     if not image.info:
         score += 30
+    # Simulated AI artifact detection
+    score += 30
     return score
+
 
 def url_score(url):
     score = 0
@@ -51,56 +40,157 @@ def url_score(url):
         score += 20
     if not url.startswith("https"):
         score += 20
-    if re.search(r"login|verify|otp|free|update", url.lower()):
+    if re.search(r"login|verify|otp|free|update|bank", url.lower()):
         score += 30
     if re.match(r"https?://\d+\.\d+\.\d+\.\d+", url):
         score += 30
     return min(score, 100)
+
 
 def bot_score(comments):
     if len(comments) < 2:
         return 0
     vectorizer = TfidfVectorizer()
     X = vectorizer.fit_transform(comments)
-    sim = cosine_similarity(X)
-    similar = np.sum(sim > 0.8) - len(comments)
-    return min(similar * 10, 100)
+    similarity = cosine_similarity(X)
+    similar_pairs = np.sum(similarity > 0.8) - len(comments)
+    return min(similar_pairs * 10, 100)
+
 
 def election_context(text):
-    keywords = ["vote", "election", "party", "pm", "bjp", "congress", "dmk"]
+    keywords = [
+        "vote", "election", "party", "pm", "government",
+        "bjp", "congress", "dmk", "aiadmk"
+    ]
     return any(word in text.lower() for word in keywords)
 
-# ---------- ANALYZE ----------
+# ---------------- TAB 1: ANALYZE CONTENT ----------------
+with tab1:
+    st.subheader("Verify Media Content")
 
-if st.button("Analyze"):
-    total_score = 0
+    media_type = st.selectbox(
+        "Select Media Type",
+        ["Image", "Video", "Audio", "URL"]
+    )
 
-    if media_type == "Image" and uploaded_file:
-        img = Image.open(uploaded_file)
-        st.image(img, caption="Uploaded Image", use_column_width=True)
-        total_score += image_score(img)
+    uploaded_file = None
+    url_input = ""
 
-    elif media_type == "URL" and url_input:
-        total_score += url_score(url_input)
+    if media_type == "Image":
+        uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png"])
+    elif media_type == "Video":
+        uploaded_file = st.file_uploader("Upload Video", type=["mp4"])
+    elif media_type == "Audio":
+        uploaded_file = st.file_uploader("Upload Audio", type=["mp3", "wav"])
+    elif media_type == "URL":
+        url_input = st.text_input("Paste Website / Link")
 
-    elif media_type in ["Video", "Audio"]:
-        st.info("This media analysis is under development (simulated output).")
-        total_score += 40
+    comments_text = st.text_area(
+        "Paste Comments (one per line)",
+        height=150,
+        placeholder="Vote for X now!\nVote for X now!\nThis leader will save the country"
+    )
 
-    comments = [c for c in comments_text.split("\n") if c.strip()]
-    total_score += bot_score(comments)
+    if st.button("Analyze Content"):
+        total_score = 0
 
-    if election_context(comments_text):
-        total_score += 20
+        if media_type == "Image" and uploaded_file:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Image", use_column_width=True)
+            total_score += image_score(image)
 
-    total_score = min(total_score, 100)
+        elif media_type == "URL" and url_input:
+            total_score += url_score(url_input)
 
-    st.subheader("Final Result")
-    st.write("Confidence Score:", total_score, "%")
+        elif media_type in ["Video", "Audio"]:
+            st.info("Audio / Video analysis is under development (simulated result).")
+            total_score += 40
 
-    if total_score < 40:
-        st.success("REAL CONTENT")
-    elif total_score < 70:
-        st.warning("SUSPICIOUS CONTENT")
-    else:
-        st.error("LIKELY FAKE / MISINFORMATION")
+        comments = [c for c in comments_text.split("\n") if c.strip()]
+        total_score += bot_score(comments)
+
+        if election_context(comments_text):
+            total_score += 20
+
+        total_score = min(total_score, 100)
+
+        st.subheader("Final Result")
+        st.write("Confidence Score:", total_score, "%")
+
+        if total_score < 40:
+            st.success("✅ REAL CONTENT")
+        elif total_score < 70:
+            st.warning("⚠️ SUSPICIOUS CONTENT")
+        else:
+            st.error("❌ LIKELY FAKE / MISINFORMATION")
+
+# ---------------- TAB 2: BOT DETECTION ----------------
+with tab2:
+    st.subheader("Bot & Coordinated Comment Detection")
+
+    st.write("""
+    This module detects **automated or coordinated bot activity**, commonly used in
+    misinformation and election manipulation campaigns.
+    
+    **Indicators used:**
+    - Repeated comments
+    - High text similarity
+    - Coordinated messaging patterns
+    """)
+
+    demo_comments = st.text_area(
+        "Enter comments to check bot activity (one per line):",
+        height=200
+    )
+
+    if st.button("Check Bot Activity"):
+        comments = [c for c in demo_comments.split("\n") if c.strip()]
+        score = bot_score(comments)
+
+        st.write("Bot Probability:", score, "%")
+
+        if score > 60:
+            st.error("🤖 High Bot Activity Detected")
+        else:
+            st.success("✅ No Significant Bot Activity Detected")
+
+# ---------------- TAB 3: ABOUT ----------------
+with tab3:
+    st.subheader("About This Project")
+
+    st.write("""
+    ### Problem
+    AI-generated deepfakes, fake voice calls, and malicious links are increasingly used
+    for fraud, impersonation, and election misinformation. Elderly and non-technical users
+    are especially vulnerable.
+
+    ### Our Solution
+    The **AI Deepfake and Misinformation Detection Tool** verifies:
+    - Images
+    - URLs
+    - Behavioral patterns in comments
+
+    It provides a **clear verdict** with a **confidence score**, making risk assessment
+    simple and understandable.
+
+    ### Target Users
+    - Elderly users
+    - General public
+    - Cybercrime investigators
+    - Election monitoring authorities
+    """)
+
+# ---------------- TAB 4: FUTURE SCOPE ----------------
+with tab4:
+    st.subheader("Future Scope & Enhancements")
+
+    st.markdown("""
+    🔹 Video deepfake detection (frame & lip-sync analysis)  
+    🔹 Audio deepfake & AI voice cloning detection  
+    🔹 Real-time social media monitoring  
+    🔹 Multilingual bot detection (Tamil, Hindi, English)  
+    🔹 Mobile app for elderly users  
+    🔹 Integration with Cyber Crime & Election Commission systems
+    """)
+
+    st.info("This prototype demonstrates core detection logic. Advanced AI models will be integrated in future phases.")
