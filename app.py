@@ -5,206 +5,194 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# ---------------- PAGE CONFIG ----------------
+# ---------------- CONFIG ----------------
 st.set_page_config(
     page_title="AI Deepfake and Misinformation Detection Tool",
     layout="wide"
 )
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("🛡️ AI Verification System")
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "🏠 Home",
-        "🔍 Analyze Content",
-        "🎥 Video Deepfake Detection",
-        "🎙️ Audio Deepfake Detection",
-        "🤖 Bot & Social Media Monitoring",
-        "🌐 Multilingual Bot Detection",
-        "ℹ️ About & Integration"
-    ]
-)
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+<style>
+body {
+    background-color: #f8f9fb;
+}
+.main-title {
+    font-size: 46px;
+    font-weight: 800;
+}
+.subtitle {
+    font-size: 18px;
+    color: #555;
+}
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    transition: 0.3s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+.section-title {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+.badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: #eef2ff;
+    display: inline-block;
+    margin-right: 10px;
+}
+.footer {
+    text-align: center;
+    color: gray;
+    margin-top: 50px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ---------------- FUNCTIONS ----------------
-def image_score(image):
-    score = 0
-    if not image.info:
-        score += 30
-    score += 30  # simulated AI artifacts
-    return score
+# ---------------- HEADER ----------------
+st.markdown("<div class='main-title'>AI Deepfake and Misinformation Detection Tool</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Detect fake media, misinformation, bot activity & election manipulation using AI</div>", unsafe_allow_html=True)
 
-def url_score(url):
-    score = 0
-    if len(url) > 75:
-        score += 20
-    if not url.startswith("https"):
-        score += 20
-    if re.search(r"login|verify|otp|free|update|bank", url.lower()):
-        score += 30
-    return min(score, 100)
+st.markdown("---")
 
+# ---------------- NAVIGATION ----------------
+tabs = st.tabs([
+    "🔍 Analyze",
+    "🎥 Video Deepfake",
+    "🎙️ Audio Deepfake",
+    "🤖 Social Media & Bots",
+    "🌐 Multilingual",
+    "🏛️ Integration"
+])
+
+# ---------------- HELPER FUNCTIONS ----------------
 def bot_score(comments):
     if len(comments) < 2:
         return 0
-    vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform(comments)
+    vec = TfidfVectorizer()
+    X = vec.fit_transform(comments)
     sim = cosine_similarity(X)
-    similar = np.sum(sim > 0.8) - len(comments)
-    return min(similar * 10, 100)
+    return min((np.sum(sim > 0.8) - len(comments)) * 10, 100)
 
-# ---------------- HOME ----------------
-if page == "🏠 Home":
-    st.markdown("## 🛡️ AI Deepfake and Misinformation Detection Tool")
+def url_score(url):
+    score = 0
+    if len(url) > 75: score += 20
+    if not url.startswith("https"): score += 20
+    if re.search("login|otp|bank|verify|free|update", url.lower()): score += 30
+    return min(score, 100)
 
-    st.markdown("""
-    A unified platform to detect **AI-generated media, fake links, bot-driven misinformation,
-    and election manipulation**, designed especially for **elderly and non-technical users**.
-    """)
+# ---------------- TAB 1 ----------------
+with tabs[0]:
+    st.markdown("<div class='section-title'>Verify Media Content</div>", unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
-    col1.success("✔ Image & URL Verification")
-    col2.warning("✔ Bot & Comment Analysis")
-    col3.info("✔ Election & Misinformation Context")
+    with st.container():
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("### 🔎 Supported Media")
-    st.write("Images • Videos • Audio • URLs • Social Media Comments")
+        media = st.selectbox("Select Media Type", ["Image", "URL", "Video", "Audio"])
 
-# ---------------- ANALYZE CONTENT ----------------
-elif page == "🔍 Analyze Content":
-    st.header("🔍 Analyze Media Content")
-
-    media_type = st.selectbox("Select Media Type", ["Image", "URL", "Video", "Audio"])
-
-    uploaded_file = None
-    url_input = ""
-
-    if media_type == "Image":
-        uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png"])
-    elif media_type == "URL":
-        url_input = st.text_input("Paste URL")
-    elif media_type in ["Video", "Audio"]:
-        uploaded_file = st.file_uploader(f"Upload {media_type}", type=["mp4", "mp3", "wav"])
-
-    comments_text = st.text_area(
-        "Paste Comments (optional – one per line)",
-        height=150
-    )
-
-    if st.button("Analyze"):
-        score = 0
-
-        if media_type == "Image" and uploaded_file:
-            image = Image.open(uploaded_file)
-            st.image(image, use_column_width=True)
-            score += image_score(image)
-
-        elif media_type == "URL" and url_input:
-            score += url_score(url_input)
-
-        elif media_type in ["Video", "Audio"]:
-            st.info("Advanced deepfake analysis under development.")
-            score += 40
-
-        comments = [c for c in comments_text.split("\n") if c.strip()]
-        score += bot_score(comments)
-
-        score = min(score, 100)
-
-        st.markdown("### 📊 Result")
-        st.metric("Confidence Score", f"{score}%")
-
-        if score < 40:
-            st.success("✅ Real Content")
-        elif score < 70:
-            st.warning("⚠️ Suspicious Content")
+        if media == "Image":
+            img = st.file_uploader("Upload Image", type=["jpg","png"])
+        elif media == "URL":
+            url = st.text_input("Paste Website / Link")
         else:
-            st.error("❌ Likely Fake / Misinformation")
+            st.file_uploader(f"Upload {media}", disabled=True)
 
-# ---------------- VIDEO ----------------
-elif page == "🎥 Video Deepfake Detection":
-    st.header("🎥 Video Deepfake Detection")
+        comments = st.text_area("Paste Comments (one per line)", height=120)
 
+        if st.button("Analyze Content"):
+            score = 0
+            if media == "URL":
+                score += url_score(url)
+            if comments:
+                score += bot_score([c for c in comments.split("\n") if c])
+
+            st.markdown("### Result")
+            st.progress(score/100)
+            st.write(f"Confidence Score: **{score}%**")
+
+            if score < 40:
+                st.success("✅ Real Content")
+            elif score < 70:
+                st.warning("⚠️ Suspicious Content")
+            else:
+                st.error("❌ Likely Fake / Misinformation")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# ---------------- TAB 2 ----------------
+with tabs[1]:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("### 🎥 Video Deepfake Detection")
     st.markdown("""
-    **Planned Detection Techniques:**
-    - Frame-by-frame analysis
-    - Face landmark inconsistencies
-    - Lip-sync mismatch detection
-    - Temporal artifact detection
+    **Planned AI Techniques**
+    - Frame-level artifact detection  
+    - Facial landmark inconsistencies  
+    - Lip-sync mismatch analysis  
+    - Temporal coherence checks  
     """)
+    st.info("Will use CNN + LSTM models for real-time detection.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.info("This module will use CNN + temporal models (future phase).")
-
-# ---------------- AUDIO ----------------
-elif page == "🎙️ Audio Deepfake Detection":
-    st.header("🎙️ Audio & Voice Cloning Detection")
-
+# ---------------- TAB 3 ----------------
+with tabs[2]:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("### 🎙️ Audio & Voice Cloning Detection")
     st.markdown("""
-    **Detection Approach:**
-    - Voiceprint comparison
-    - Spectrogram anomaly detection
-    - AI voice cloning markers
+    **Detection Pipeline**
+    - Voiceprint matching  
+    - Spectrogram anomaly detection  
+    - AI-generated voice markers  
     """)
+    st.info("Planned integration with pretrained audio deepfake models.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.info("Integration with pretrained audio deepfake models planned.")
-
-# ---------------- BOT & SOCIAL ----------------
-elif page == "🤖 Bot & Social Media Monitoring":
-    st.header("🤖 Bot & Real-Time Social Media Monitoring")
-
+# ---------------- TAB 4 ----------------
+with tabs[3]:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("### 🤖 Social Media & Bot Monitoring")
     st.markdown("""
-    **Capabilities:**
-    - Detect coordinated comments
-    - Identify bot-like repetition
-    - Election misinformation alerts
+    - Detect coordinated comment attacks  
+    - Election manipulation alerts  
+    - Fake trend identification  
     """)
-
-    demo = st.text_area("Try sample comments:", height=200)
-
+    demo = st.text_area("Try sample comments")
     if st.button("Check Bot Activity"):
-        comments = [c for c in demo.split("\n") if c.strip()]
-        score = bot_score(comments)
+        score = bot_score([c for c in demo.split("\n") if c])
         st.metric("Bot Probability", f"{score}%")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        if score > 60:
-            st.error("🤖 High Bot Activity Detected")
-        else:
-            st.success("✅ Normal User Activity")
-
-# ---------------- MULTILINGUAL ----------------
-elif page == "🌐 Multilingual Bot Detection":
-    st.header("🌐 Multilingual Bot Detection")
-
+# ---------------- TAB 5 ----------------
+with tabs[4]:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("### 🌐 Multilingual Bot Detection")
     st.markdown("""
-    **Supported Languages (Planned):**
-    - English
-    - Tamil
-    - Hindi
+    **Languages**
+    - English  
+    - Tamil  
+    - Hindi  
 
-    **Approach:**
-    - Language detection
-    - Keyword & sentiment analysis
-    - Cross-language bot similarity
+    Uses multilingual NLP & cross-language similarity.
     """)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.info("Multilingual NLP models will be integrated in future phases.")
-
-# ---------------- ABOUT ----------------
-elif page == "ℹ️ About & Integration":
-    st.header("ℹ️ About & Government Integration")
-
+# ---------------- TAB 6 ----------------
+with tabs[5]:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("### 🏛️ Government & Mobile Integration")
     st.markdown("""
-    **Target Users:**
-    - Elderly citizens
-    - General public
-    - Cyber Crime Units
-    - Election Commission
-
-    **Planned Integrations:**
-    - Cyber Crime Portal
-    - Election Commission monitoring systems
-    - Mobile app for elderly users (simple UI, voice alerts)
+    - Cyber Crime Portal integration  
+    - Election Commission monitoring  
+    - Mobile app for elderly users  
+    - Voice-based alerts & warnings  
     """)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("🔗 https://cybercrime.gov.in")
+# ---------------- FOOTER ----------------
+st.markdown("<div class='footer'>© 2025 AI Deepfake & Misinformation Detection Tool</div>", unsafe_allow_html=True)
